@@ -1,0 +1,144 @@
+#include<malloc.h>
+#include<string.h>
+#include<stdio.h>
+#include<stdlib.h>
+
+typedef struct Rezervare Rezervare;
+struct Rezervare {
+    int id;
+    char* numeClient;
+    int nrPersoane;
+};
+
+
+typedef struct Nod Nod;
+struct Nod {
+    Nod* stanga;
+    Nod* dreapta;
+    Rezervare info;
+};
+
+
+int determinareInaltime(Nod* radacina) {
+    if (radacina) {
+        int stH = determinareInaltime(radacina->stanga);
+        int drH = determinareInaltime(radacina->dreapta);
+        return 1 + (stH > drH ? stH : drH);
+    }
+    else {
+        return 0;
+    }
+}
+
+void rotireStanga(Nod** radacina) {
+    Nod* aux = (*radacina)->dreapta;
+    (*radacina)->dreapta = aux->stanga;
+    aux->stanga = (*radacina);
+    *radacina = aux;
+}
+
+void rotireDreapta(Nod** radacina) {
+    Nod* aux = (*radacina)->stanga;
+    (*radacina)->stanga = aux->dreapta;
+    aux->dreapta = (*radacina);
+    *radacina = aux;
+}
+
+int gradEchilibru(Nod* radacina) {
+    if (radacina) {
+        int hStanga = determinareInaltime(radacina->stanga);
+        int hDreapta = determinareInaltime(radacina->dreapta);
+        return hStanga - hDreapta;
+    }
+    return 0;
+}
+
+void inserareNodAVL(Rezervare r, Nod** radacina) {
+    if (*radacina) {
+        if ((*radacina)->info.id > r.id) {
+            inserareNodAVL(r, &(*radacina)->stanga);
+        }
+        else {
+            inserareNodAVL(r, &(*radacina)->dreapta);
+        }
+
+        int grad = gradEchilibru(*radacina);
+        if (grad == 2) {
+            if (gradEchilibru((*radacina)->stanga) == 1) {
+                rotireDreapta(radacina);
+            }
+            else {
+                rotireStanga(&(*radacina)->stanga);
+                rotireDreapta(radacina);
+            }
+        }
+
+        if (grad == -2) {
+            if (gradEchilibru((*radacina)->dreapta) == 1) {
+                rotireDreapta(&(*radacina)->dreapta);
+            }
+            rotireStanga(radacina);
+        }
+    }
+    else {
+        Nod* nou = (Nod*)malloc(sizeof(Nod));
+        nou->info = r;
+        nou->stanga = NULL;
+        nou->dreapta = NULL;
+        *radacina = nou;
+    }
+}
+
+
+Rezervare citireRezervare(FILE* f) {
+    Rezervare r;
+    char buffer[50];
+    fscanf(f, "%d", &r.id);
+    fscanf(f, "%s", &buffer);
+    r.numeClient = (char*)malloc(strlen(buffer) + 1);
+    strcpy(r.numeClient, buffer);
+    fscanf(f, "%d", &r.nrPersoane);
+
+    return r;
+}
+
+void citireFisier(const char* numeFisier, Nod** radacina) {
+    FILE* f = fopen(numeFisier, "r");
+    int nrRezervari;
+    fscanf(f, "%d", &nrRezervari);
+    for (int i = 0; i < nrRezervari; i++) {
+        Rezervare r = citireRezervare(f);
+        inserareNodAVL(r, radacina);
+    }
+}
+
+
+void afisareRezervare(Rezervare r) {
+    printf("Rezervarea cu ID-ul %d a fost facuta de %s pentru %d persoane.\n", r.id, r.numeClient, r.nrPersoane);
+}
+
+
+void afisareArboreInOrdine(Nod* radacina) {
+    if (radacina) {
+        afisareArboreInOrdine(radacina->stanga);
+        afisareRezervare(radacina->info);
+        afisareArboreInOrdine(radacina->dreapta);
+    }
+}
+
+void stergereArbore(Nod** radacina) {
+    if (*radacina) {
+        stergereArbore(&(*radacina)->stanga);
+        stergereArbore(&(*radacina)->dreapta);
+        free((*radacina)->info.numeClient);
+        free(*radacina);
+        (*radacina) = NULL;
+    }
+}
+
+int main() {
+    Nod* rad = NULL;
+    citireFisier("Rezervari.txt", &rad);
+    afisareArboreInOrdine(rad);
+    stergereArbore(&rad);
+}
